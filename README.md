@@ -1,6 +1,12 @@
-# Routing Composer
+<div align="center">
+  <img src=".github/assets/flutter_routing_composer.png" alt="Routing Composer Cover" width="100%"/>
+  
+  # Routing Composer
 
-A **Routing Composition & Abstraction Layer** for Flutter that allows switching routing libraries (GoRouter, AutoRoute, Navigator 2.0, Beamer) without refactoring application code.
+  **A Routing Composition & Abstraction Layer for Flutter**
+  
+  <p>Switch routing libraries (GoRouter, AutoRoute, Navigator 2.0, Beamer) without refactoring application code</p>
+</div>
 
 ## Features
 
