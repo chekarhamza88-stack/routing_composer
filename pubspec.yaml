@@ -1,7 +1,7 @@
 name: routing_composer
 description: "A routing composition and abstraction layer for Flutter that allows switching routing libraries without refactoring application code."
 version: 1.0.0
-homepage: https://github.com/example/routing_composer
+homepage: https://github.com/chekarhamza88-stack/routing_composer
 
 environment:
   sdk: ^3.7.2
@@ -12,6 +12,8 @@ dependencies:
     sdk: flutter
   # GoRouter adapter dependency
   go_router: ^14.0.0
+  # AutoRoute adapter dependency
+  auto_route: ^9.2.2
 
 dev_dependencies:
   flutter_test:

@@ -67,6 +67,7 @@ export 'core/routing/domain/route_guard.dart';
 export 'core/routing/domain/route_params.dart';
 
 // Adapters - Concrete implementations (wire up in DI)
+export 'core/routing/adapters/auto_route_adapter.dart';
 export 'core/routing/adapters/go_router_adapter.dart';
 export 'core/routing/adapters/in_memory_adapter.dart';
 

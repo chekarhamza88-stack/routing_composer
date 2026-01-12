@@ -5,5 +5,6 @@
 /// Adapters are wired up in the DI configuration.
 library;
 
+export 'auto_route_adapter.dart';
 export 'go_router_adapter.dart';
 export 'in_memory_adapter.dart';

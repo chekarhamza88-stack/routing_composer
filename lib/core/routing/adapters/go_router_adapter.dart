@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart' as go;
 
 import '../domain/domain.dart';
+import '../utils/iterable_extensions.dart';
 
 /// Page builder function type for creating pages from routes.
 typedef PageBuilder =
@@ -63,6 +64,10 @@ class GoRouterAdapter implements AppRouter {
 
   // Completer for awaiting navigation results
   final Map<String, Completer<dynamic>> _pendingResults = {};
+
+  // Tab tracking for shell navigation
+  int _currentTabIndex = 0;
+  final Map<int, RouteDefinition?> _tabRoutes = {};
 
   /// Creates a GoRouter adapter.
   ///
@@ -476,17 +481,28 @@ class GoRouterAdapter implements AppRouter {
   DeepLinkHandler get deepLinkHandler => _deepLinkHandler;
 
   @override
-  int get currentTabIndex => 0; // TODO: Implement tab tracking
+  int get currentTabIndex => _currentTabIndex;
 
   @override
   void switchToTab(int index) {
-    // TODO: Implement shell tab switching
+    // Store current tab's route
+    _tabRoutes[_currentTabIndex] = _currentRoute;
+
+    // Switch tab index
+    _currentTabIndex = index;
+
+    // Restore previous route for new tab if exists
+    if (_tabRoutes.containsKey(index)) {
+      _currentRoute = _tabRoutes[index];
+    }
   }
 
   @override
   RouteDefinition? getCurrentRouteForTab(int tabIndex) {
-    // TODO: Implement per-tab route tracking
-    return _currentRoute;
+    if (tabIndex == _currentTabIndex) {
+      return _currentRoute;
+    }
+    return _tabRoutes[tabIndex];
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -582,15 +598,5 @@ class _GoRouterObserverBridge extends NavigatorObserver {
         _adapter._currentRoute = routeDef;
       }
     }
-  }
-}
-
-/// Extension to add firstWhereOrNull to Iterable.
-extension _IterableExtension<T> on Iterable<T> {
-  T? firstWhereOrNull(bool Function(T) test) {
-    for (final element in this) {
-      if (test(element)) return element;
-    }
-    return null;
   }
 }
