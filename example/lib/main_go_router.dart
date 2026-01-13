@@ -1,4 +1,4 @@
-/// Example application demonstrating Routing Composer with AutoRoute.
+/// Example application demonstrating Routing Composer with GoRouter.
 ///
 /// This example shows:
 /// - Auth guard flow with login redirect
@@ -6,13 +6,13 @@
 /// - Deep link handling
 /// - Error handling UI
 ///
-/// Run with: `flutter run -t lib/main_auto_route.dart`
+/// Run with: `flutter run`
 library;
 
 import 'package:flutter/material.dart';
 
-import 'app/auto_route_app.dart';
+import 'app/go_router_app.dart';
 
 void main() {
-  runApp(const AutoRouteExampleApp());
+  runApp(const GoRouterExampleApp());
 }
