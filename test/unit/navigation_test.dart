@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:routing_composer/core/routing/adapters/in_memory_adapter.dart';
-import 'package:routing_composer/core/routing/domain/domain.dart';
-import 'package:routing_composer/core/routing/routes/app_routes.dart';
+import 'package:routing_composer/routing_composer.dart';
 
 void main() {
   group('InMemoryAdapter Navigation Tests', () {

@@ -1,46 +1,24 @@
 import 'dart:async';
 
-import 'package:auto_route/auto_route.dart' hide NavigationFailure;
+import 'package:auto_route/auto_route.dart' hide NavigationFailure, PageBuilder;
 import 'package:flutter/widgets.dart';
 
-import '../domain/domain.dart';
-import '../utils/iterable_extensions.dart';
+import '../../domain/domain.dart';
+import '../../utils/iterable_extensions.dart';
+import 'auto_route_guard_bridge.dart';
+import 'auto_route_observer_bridge.dart';
+import 'dynamic_auto_router.dart';
+import 'dynamic_page_info.dart';
 
-/// Page builder function type for creating pages from routes (AutoRoute version).
-typedef AutoRoutePageBuilder =
-    Widget Function(
-      BuildContext context,
-      RouteDefinition route,
-      Map<String, String> pathParams,
-      Map<String, String> queryParams,
-      Object? extra,
-    );
-
-/// Data passed to shell builders for accessing route state.
-class AutoRouteShellData {
-  /// The current route definition within the shell.
-  final RouteDefinition? currentRoute;
-
-  /// Path parameters from the current route.
-  final Map<String, String> pathParams;
-
-  /// Query parameters from the current route.
-  final Map<String, String> queryParams;
-
-  /// Creates shell route data.
-  const AutoRouteShellData({
-    this.currentRoute,
-    this.pathParams = const {},
-    this.queryParams = const {},
-  });
-}
-
-/// Shell page builder for nested navigation (AutoRoute version).
+/// Shell page builder for nested navigation (AutoRoute-specific).
 ///
-/// Provides [AutoRouteShellData] for accessing current route state,
-/// matching GoRouter's ShellPageBuilder signature pattern.
-typedef AutoRouteShellBuilder =
-    Widget Function(BuildContext context, AutoRouteShellData data, Widget child);
+/// Uses [ShellRouteData] from domain for accessing current route state,
+/// providing a consistent interface across adapters.
+typedef AutoRouteShellBuilder = Widget Function(
+  BuildContext context,
+  ShellRouteData data,
+  Widget child,
+);
 
 /// AutoRoute adapter implementing [AppRouter].
 ///
@@ -66,11 +44,11 @@ typedef AutoRouteShellBuilder =
 /// ```
 class AutoRouteAdapter implements AppRouter {
   final RouterConfiguration _configuration;
-  final AutoRoutePageBuilder _pageBuilder;
+  final PageBuilder _pageBuilder;
   final AutoRouteShellBuilder? _shellBuilder;
   final Map<String, AutoRouteShellBuilder> _shellBuilders;
 
-  late final _DynamicAutoRouter _autoRouter;
+  late final DynamicAutoRouter _autoRouter;
   late final DefaultDeepLinkHandler _deepLinkHandler;
   final GuardRegistry _guardRegistry = GuardRegistry();
   final List<NavigationObserver> _observers = [];
@@ -97,7 +75,7 @@ class AutoRouteAdapter implements AppRouter {
   /// [navigatorKey] - Optional navigator key for testing
   AutoRouteAdapter({
     required RouterConfiguration configuration,
-    required AutoRoutePageBuilder pageBuilder,
+    required PageBuilder pageBuilder,
     AutoRouteShellBuilder? shellBuilder,
     Map<String, AutoRouteShellBuilder> shellBuilders = const {},
     GlobalKey<NavigatorState>? navigatorKey,
@@ -124,12 +102,12 @@ class AutoRouteAdapter implements AppRouter {
     }
   }
 
-  _DynamicAutoRouter _createAutoRouter(
+  DynamicAutoRouter _createAutoRouter(
     GlobalKey<NavigatorState>? navigatorKey,
   ) {
-    return _DynamicAutoRouter(
+    return DynamicAutoRouter(
       routes: _buildAutoRoutes(),
-      guards: [_AutoRouteGuardBridge(this, _guardRegistry)],
+      guards: [AutoRouteGuardBridge(this, _guardRegistry)],
       initialRoute: _configuration.initialRoute.path,
       navigatorKey: navigatorKey,
     );
@@ -149,7 +127,7 @@ class AutoRouteAdapter implements AppRouter {
   AutoRoute _buildAutoRoute(RouteDefinition route) {
     return AutoRoute(
       path: route.path,
-      page: _DynamicPageInfo(
+      page: DynamicPageInfo(
         routeName: route.name,
         pageBuilder: (data) => _buildPageWidget(data, route),
       ),
@@ -159,7 +137,7 @@ class AutoRouteAdapter implements AppRouter {
   AutoRoute _buildShellRoute(ShellRouteDefinition route) {
     return AutoRoute(
       path: route.path,
-      page: _DynamicPageInfo(
+      page: DynamicPageInfo(
         routeName: route.name,
         pageBuilder: (data) => _buildShellWidget(data, route),
       ),
@@ -186,7 +164,7 @@ class AutoRouteAdapter implements AppRouter {
       builder: (context) {
         final shellBuilder = _shellBuilders[route.name] ?? _shellBuilder;
         if (shellBuilder != null) {
-          final shellData = AutoRouteShellData(
+          final shellData = ShellRouteData(
             currentRoute: _currentRoute,
             pathParams: _currentPathParams,
             queryParams: _currentQueryParams,
@@ -198,8 +176,46 @@ class AutoRouteAdapter implements AppRouter {
     );
   }
 
-  RouteDefinition? _findRouteByName(String name) {
+  /// Whether guards should be bypassed.
+  bool get bypassGuards => _bypassGuards;
+
+  /// Finds a route definition by name.
+  RouteDefinition? findRouteByName(String name) {
     return _configuration.routes.firstWhereOrNull((r) => r.name == name);
+  }
+
+  /// Notifies observers of navigation failure.
+  ///
+  /// Called by [AutoRouteGuardBridge] when guards reject navigation.
+  void notifyNavigationFailed(RouteDefinition? route, NavigationError error) {
+    _notifyNavigationFailed(route, error);
+  }
+
+  /// Updates route state from an AutoRoutePage.
+  ///
+  /// Called by [AutoRouteObserverBridge] to sync state.
+  void updateRouteFromAutoRoutePage(AutoRoutePage page) {
+    final routeData = page.routeData;
+    final routeDef = findRouteByName(routeData.name);
+
+    if (routeDef != null) {
+      _currentRoute = routeDef;
+      _currentPathParams
+        ..clear()
+        ..addAll(routeData.pathParams.rawMap.cast<String, String>());
+      _currentQueryParams
+        ..clear()
+        ..addAll(routeData.queryParams.rawMap.cast<String, String>());
+    }
+  }
+
+  /// Updates tab index and route.
+  ///
+  /// Called by [AutoRouteObserverBridge] on tab changes.
+  void updateTabIndex(int index, String routeName) {
+    _currentTabIndex = index;
+    final routeDef = findRouteByName(routeName);
+    _tabRoutes[index] = routeDef;
   }
 
   /// Builds a PageRouteInfo for navigation.
@@ -210,7 +226,7 @@ class AutoRouteAdapter implements AppRouter {
     final pathParams = params?.toPathParams() ?? {};
     final queryParams = params?.toQueryParams() ?? {};
 
-    return _DynamicPageRouteInfo(
+    return DynamicPageRouteInfo(
       routeName: route.name,
       pathParams: pathParams,
       queryParams: queryParams,
@@ -224,7 +240,7 @@ class AutoRouteAdapter implements AppRouter {
 
   @override
   RouterConfig<Object> get routerConfig => _autoRouter.config(
-    navigatorObservers: () => [_AutoRouteObserverBridge(this)],
+    navigatorObservers: () => [AutoRouteObserverBridge(this)],
     deepLinkBuilder: (deepLink) {
       final parsed = _deepLinkHandler.parse(deepLink.uri);
       if (parsed != null) {
@@ -410,7 +426,7 @@ class AutoRouteAdapter implements AppRouter {
       final settings = route.settings;
       if (settings is AutoRoutePage) {
         final routeName = settings.routeData.name;
-        final routeDef = _findRouteByName(routeName);
+        final routeDef = findRouteByName(routeName);
         if (routeDef != null && predicate(routeDef)) {
           found = true;
           return true;
@@ -560,216 +576,4 @@ class AutoRouteAdapter implements AppRouter {
     _navigationController.close();
     _autoRouter.dispose();
   }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Dynamic Router Implementation
-// ─────────────────────────────────────────────────────────────────
-
-/// Dynamic router that builds routes from RouteDefinitions at runtime.
-class _DynamicAutoRouter extends RootStackRouter {
-  final List<AutoRoute> _routes;
-  final List<AutoRouteGuard> _guards;
-  final String _initialRoute;
-  final GlobalKey<NavigatorState>? _navigatorKey;
-
-  _DynamicAutoRouter({
-    required List<AutoRoute> routes,
-    required List<AutoRouteGuard> guards,
-    required String initialRoute,
-    GlobalKey<NavigatorState>? navigatorKey,
-  }) : _routes = routes,
-       _guards = guards,
-       _initialRoute = initialRoute,
-       _navigatorKey = navigatorKey;
-
-  @override
-  List<AutoRoute> get routes => _routes;
-
-  @override
-  List<AutoRouteGuard> get guards => _guards;
-
-  String get initialRoute => _initialRoute;
-
-  @override
-  GlobalKey<NavigatorState> get navigatorKey {
-    return _navigatorKey ?? super.navigatorKey;
-  }
-
-  @override
-  RouteType get defaultRouteType => const RouteType.material();
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Guard Bridge
-// ─────────────────────────────────────────────────────────────────
-
-/// Bridge between our RouteGuard and AutoRoute's AutoRouteGuard.
-class _AutoRouteGuardBridge extends AutoRouteGuard {
-  final AutoRouteAdapter _adapter;
-  final GuardRegistry _guardRegistry;
-
-  _AutoRouteGuardBridge(this._adapter, this._guardRegistry);
-
-  @override
-  void onNavigation(NavigationResolver resolver, StackRouter router) async {
-    // Skip guards if bypassed
-    if (_adapter._bypassGuards) {
-      resolver.next(true);
-      return;
-    }
-
-    // Find our RouteDefinition from the AutoRoute route
-    final routeName = resolver.route.name;
-    final route = _adapter._findRouteByName(routeName);
-
-    if (route == null) {
-      resolver.next(true);
-      return;
-    }
-
-    // Get all guards for this route (global + route-specific)
-    final guards = _guardRegistry.getGuardsFor(route);
-    if (guards.isEmpty) {
-      resolver.next(true);
-      return;
-    }
-
-    // Build GuardContext
-    final guardContext = GuardContext(
-      destination: route,
-      currentRoute: _adapter._currentRoute,
-      pathParams: resolver.route.pathParams.rawMap.cast<String, String>(),
-      queryParams: resolver.route.queryParams.rawMap.cast<String, String>(),
-      uri: Uri.tryParse(resolver.route.stringMatch),
-    );
-
-    // Evaluate guards sequentially
-    for (final guard in guards) {
-      final result = await guard.canActivate(guardContext);
-
-      switch (result) {
-        case GuardAllow():
-          continue;
-
-        case GuardRedirect(:final redirectTo, :final params):
-          _adapter._notifyNavigationFailed(
-            route,
-            GuardRejectedError(
-              route: route,
-              redirectTo: redirectTo,
-              guardName: guard.name,
-            ),
-          );
-          // Use AutoRoute's redirect mechanism
-          final redirectPageInfo = _adapter._buildPageRouteInfo(
-            redirectTo,
-            params,
-          );
-          resolver.redirect(redirectPageInfo);
-          return;
-
-        case GuardReject(:final reason):
-          _adapter._notifyNavigationFailed(
-            route,
-            GuardRejectedError(
-              route: route,
-              guardName: guard.name,
-              message: reason,
-            ),
-          );
-          resolver.next(false);
-          return;
-      }
-    }
-
-    // All guards passed
-    resolver.next(true);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Observer Bridge
-// ─────────────────────────────────────────────────────────────────
-
-/// Bridge between AutoRoute navigation and our state tracking.
-class _AutoRouteObserverBridge extends AutoRouterObserver {
-  final AutoRouteAdapter _adapter;
-
-  _AutoRouteObserverBridge(this._adapter);
-
-  @override
-  void didPush(Route route, Route? previousRoute) {
-    _updateRoute(route);
-  }
-
-  @override
-  void didPop(Route route, Route? previousRoute) {
-    if (previousRoute != null) {
-      _updateRoute(previousRoute);
-    }
-  }
-
-  @override
-  void didReplace({Route? newRoute, Route? oldRoute}) {
-    if (newRoute != null) {
-      _updateRoute(newRoute);
-    }
-  }
-
-  @override
-  void didChangeTabRoute(TabPageRoute route, TabPageRoute previousRoute) {
-    _adapter._currentTabIndex = route.index;
-    final routeDef = _adapter._findRouteByName(route.name);
-    _adapter._tabRoutes[route.index] = routeDef;
-  }
-
-  void _updateRoute(Route route) {
-    final settings = route.settings;
-    if (settings is AutoRoutePage) {
-      final routeData = settings.routeData;
-      final routeDef = _adapter._findRouteByName(routeData.name);
-
-      if (routeDef != null) {
-        _adapter._currentRoute = routeDef;
-        _adapter._currentPathParams
-          ..clear()
-          ..addAll(routeData.pathParams.rawMap.cast<String, String>());
-        _adapter._currentQueryParams
-          ..clear()
-          ..addAll(routeData.queryParams.rawMap.cast<String, String>());
-      }
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Dynamic Page Info Classes
-// ─────────────────────────────────────────────────────────────────
-
-/// Dynamic page info that wraps RouteDefinition for AutoRoute.
-///
-/// This class connects AutoRoute's page system to our dynamic page builder.
-/// The [pageBuilder] function is called by AutoRoute when rendering pages.
-class _DynamicPageInfo extends PageInfo {
-  _DynamicPageInfo({
-    required String routeName,
-    required Widget Function(RouteData data) pageBuilder,
-  }) : super(routeName, builder: pageBuilder);
-}
-
-/// Dynamic PageRouteInfo for runtime navigation.
-class _DynamicPageRouteInfo extends PageRouteInfo<Object?> {
-  const _DynamicPageRouteInfo({
-    required String routeName,
-    Map<String, String> pathParams = const {},
-    Map<String, String> queryParams = const {},
-    Object? args,
-  }) : super(
-         routeName,
-         initialChildren: null,
-         rawPathParams: pathParams,
-         rawQueryParams: queryParams,
-         args: args,
-       );
 }

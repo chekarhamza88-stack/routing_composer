@@ -3,22 +3,19 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart' as go;
 
-import '../domain/domain.dart';
-import '../utils/iterable_extensions.dart';
+import '../../domain/domain.dart';
+import '../../utils/iterable_extensions.dart';
+import 'go_router_observer_bridge.dart';
 
-/// Page builder function type for creating pages from routes.
-typedef PageBuilder =
-    Widget Function(
-      BuildContext context,
-      RouteDefinition route,
-      Map<String, String> pathParams,
-      Map<String, String> queryParams,
-      Object? extra,
-    );
-
-/// Shell page builder for nested navigation.
-typedef ShellPageBuilder =
-    Widget Function(BuildContext context, go.GoRouterState state, Widget child);
+/// Shell page builder for nested navigation (GoRouter-specific).
+///
+/// Uses [go.GoRouterState] for full access to GoRouter's state during
+/// shell widget building.
+typedef GoRouterShellBuilder = Widget Function(
+  BuildContext context,
+  go.GoRouterState state,
+  Widget child,
+);
 
 /// GoRouter adapter implementing [AppRouter].
 ///
@@ -45,8 +42,8 @@ typedef ShellPageBuilder =
 class GoRouterAdapter implements AppRouter {
   final RouterConfiguration _configuration;
   final PageBuilder _pageBuilder;
-  final ShellPageBuilder? _shellBuilder;
-  final Map<String, ShellPageBuilder> _shellBuilders;
+  final GoRouterShellBuilder? _shellBuilder;
+  final Map<String, GoRouterShellBuilder> _shellBuilders;
 
   late final go.GoRouter _goRouter;
   late final DefaultDeepLinkHandler _deepLinkHandler;
@@ -79,8 +76,8 @@ class GoRouterAdapter implements AppRouter {
   GoRouterAdapter({
     required RouterConfiguration configuration,
     required PageBuilder pageBuilder,
-    ShellPageBuilder? shellBuilder,
-    Map<String, ShellPageBuilder> shellBuilders = const {},
+    GoRouterShellBuilder? shellBuilder,
+    Map<String, GoRouterShellBuilder> shellBuilders = const {},
     GlobalKey<NavigatorState>? navigatorKey,
   }) : _configuration = configuration,
        _pageBuilder = pageBuilder,
@@ -111,7 +108,7 @@ class GoRouterAdapter implements AppRouter {
       routes: _buildGoRoutes(),
       redirect: _handleRedirect,
       errorBuilder: _buildErrorPage,
-      observers: [_GoRouterObserverBridge(this)],
+      observers: [GoRouterObserverBridge(this)],
     );
   }
 
@@ -130,14 +127,13 @@ class GoRouterAdapter implements AppRouter {
     return go.GoRoute(
       path: route.path,
       name: route.name,
-      builder:
-          (context, state) => _pageBuilder(
-            context,
-            route,
-            state.pathParameters,
-            state.uri.queryParameters,
-            state.extra,
-          ),
+      builder: (context, state) => _pageBuilder(
+        context,
+        route,
+        state.pathParameters,
+        state.uri.queryParameters,
+        state.extra,
+      ),
     );
   }
 
@@ -145,10 +141,9 @@ class GoRouterAdapter implements AppRouter {
     final builder = _shellBuilders[route.name] ?? _shellBuilder;
 
     return go.ShellRoute(
-      builder:
-          builder != null
-              ? (context, state, child) => builder(context, state, child)
-              : null,
+      builder: builder != null
+          ? (context, state, child) => builder(context, state, child)
+          : null,
       routes: route.children.map(_convertRoute).toList(),
     );
   }
@@ -231,6 +226,16 @@ class GoRouterAdapter implements AppRouter {
 
   RouteDefinition? _findRouteByName(String name) {
     return _configuration.routes.firstWhereOrNull((r) => r.name == name);
+  }
+
+  /// Updates the current route from a route name.
+  ///
+  /// Called by [GoRouterObserverBridge] to keep state in sync.
+  void updateCurrentRouteFromName(String name) {
+    final routeDef = _findRouteByName(name);
+    if (routeDef != null) {
+      _currentRoute = routeDef;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -562,41 +567,5 @@ class GoRouterAdapter implements AppRouter {
   void dispose() {
     _navigationController.close();
     _goRouter.dispose();
-  }
-}
-
-/// Bridge between GoRouter's observer and our navigation tracking.
-class _GoRouterObserverBridge extends NavigatorObserver {
-  final GoRouterAdapter _adapter;
-
-  _GoRouterObserverBridge(this._adapter);
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    _updateRoute(route);
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (previousRoute != null) {
-      _updateRoute(previousRoute);
-    }
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    if (newRoute != null) {
-      _updateRoute(newRoute);
-    }
-  }
-
-  void _updateRoute(Route<dynamic> route) {
-    final settings = route.settings;
-    if (settings.name != null) {
-      final routeDef = _adapter._findRouteByName(settings.name!);
-      if (routeDef != null) {
-        _adapter._currentRoute = routeDef;
-      }
-    }
   }
 }

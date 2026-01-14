@@ -6,11 +6,11 @@ import 'package:routing_composer/routing_composer.dart';
 
 /// Shell widget providing bottom navigation for the main app screens.
 ///
-/// This version is for AutoRoute which provides [AutoRouteShellData] with
+/// This version is for AutoRoute which provides [ShellRouteData] with
 /// current route information for proper tab synchronization.
 class MainShellAutoRoute extends StatefulWidget {
   final AppRouter router;
-  final AutoRouteShellData shellData;
+  final ShellRouteData shellData;
   final Widget child;
 
   const MainShellAutoRoute({

@@ -90,7 +90,7 @@ class _AutoRouteExampleAppState extends State<AutoRouteExampleApp> {
 
   Widget _buildShell(
     BuildContext context,
-    AutoRouteShellData data,
+    ShellRouteData data,
     Widget child,
   ) {
     return MainShellAutoRoute(router: _router, shellData: data, child: child);

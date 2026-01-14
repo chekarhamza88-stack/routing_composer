@@ -20,7 +20,7 @@ import '../routes/app_routes.dart';
 /// [navigatorKey] - Optional navigator key for testing
 AppRouter createAppRouter({
   required PageBuilder pageBuilder,
-  ShellPageBuilder? shellBuilder,
+  GoRouterShellBuilder? shellBuilder,
   List<RouteGuard> guards = const [],
   List<NavigationObserver> observers = const [],
   GlobalKey<NavigatorState>? navigatorKey,
