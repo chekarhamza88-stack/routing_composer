@@ -8,6 +8,7 @@ export 'app_router.dart';
 export 'deep_link_handler.dart';
 export 'navigation_observer.dart';
 export 'navigation_result.dart';
+export 'page_builder_types.dart';
 export 'route_definition.dart';
 export 'route_guard.dart';
 export 'route_params.dart';

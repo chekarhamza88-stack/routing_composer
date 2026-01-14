@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import '../domain/domain.dart';
+import '../../domain/domain.dart';
 
 /// In-memory router adapter for testing.
 ///

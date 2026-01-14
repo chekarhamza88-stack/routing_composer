@@ -62,14 +62,15 @@ export 'core/routing/domain/app_router.dart';
 export 'core/routing/domain/deep_link_handler.dart';
 export 'core/routing/domain/navigation_observer.dart';
 export 'core/routing/domain/navigation_result.dart';
+export 'core/routing/domain/page_builder_types.dart';
 export 'core/routing/domain/route_definition.dart';
 export 'core/routing/domain/route_guard.dart';
 export 'core/routing/domain/route_params.dart';
 
 // Adapters - Concrete implementations (wire up in DI)
-export 'core/routing/adapters/auto_route_adapter.dart';
-export 'core/routing/adapters/go_router_adapter.dart';
-export 'core/routing/adapters/in_memory_adapter.dart';
+export 'core/routing/adapters/auto_route/auto_route.dart';
+export 'core/routing/adapters/go_router/go_router.dart';
+export 'core/routing/adapters/in_memory/in_memory.dart';
 
 // Routes - Application route definitions
 export 'core/routing/routes/app_routes.dart';

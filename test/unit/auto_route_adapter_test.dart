@@ -1,14 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:routing_composer/core/routing/adapters/auto_route_adapter.dart';
-import 'package:routing_composer/core/routing/domain/domain.dart';
-import 'package:routing_composer/core/routing/routes/app_routes.dart';
+import 'package:routing_composer/routing_composer.dart';
 import 'package:routing_composer/core/routing/utils/iterable_extensions.dart';
 
 void main() {
-  group('AutoRouteShellData', () {
+  group('ShellRouteData', () {
     test('creates with default values', () {
-      const data = AutoRouteShellData();
+      const data = ShellRouteData();
 
       expect(data.currentRoute, isNull);
       expect(data.pathParams, isEmpty);
@@ -16,7 +14,7 @@ void main() {
     });
 
     test('creates with provided values', () {
-      const data = AutoRouteShellData(
+      const data = ShellRouteData(
         currentRoute: AppRoutes.home,
         pathParams: {'id': '123'},
         queryParams: {'tab': 'posts'},
@@ -62,7 +60,7 @@ void main() {
     });
   });
 
-  group('AutoRoutePageBuilder typedef', () {
+  group('PageBuilder typedef', () {
     test('has correct signature', () {
       // This test verifies the typedef signature at compile time.
       // We test that a function with the expected signature can be assigned.
@@ -77,8 +75,8 @@ void main() {
       }
 
       // If this compiles, the typedef has the correct signature
-      final AutoRoutePageBuilder builder = testBuilder;
-      expect(builder, isA<AutoRoutePageBuilder>());
+      final PageBuilder builder = testBuilder;
+      expect(builder, isA<PageBuilder>());
     });
   });
 
@@ -86,7 +84,7 @@ void main() {
     test('has correct signature', () {
       Widget testBuilder(
         BuildContext context,
-        AutoRouteShellData data,
+        ShellRouteData data,
         Widget child,
       ) {
         return child;
@@ -98,7 +96,7 @@ void main() {
 
     test('shell data provides route info to builder', () {
       // Simulate what the adapter does when building a shell
-      final data = AutoRouteShellData(
+      final data = ShellRouteData(
         currentRoute: AppRoutes.settings,
         pathParams: {'id': 'test'},
         queryParams: {'mode': 'edit'},
